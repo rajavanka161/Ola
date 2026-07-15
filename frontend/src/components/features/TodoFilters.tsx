@@ -1,70 +1,55 @@
-import { Filter, Search, Tag } from 'lucide-react';
-import type { TodoFilters as TodoFiltersType } from './types';
-import { Card } from '../ui/Card';
 import { Input } from '../ui/Input';
 import { Select } from '../ui/Select';
+import type { Priority, TodoFilters as TodoFilterState } from '../../types/todo';
 
 interface TodoFiltersProps {
-  filters: TodoFiltersType;
-  onChange: (field: keyof TodoFiltersType, value: string) => void;
+  filters: TodoFilterState;
+  onChange: (next: TodoFilterState) => void;
 }
 
 export function TodoFilters({ filters, onChange }: TodoFiltersProps) {
   return (
-    <Card className="glass-panel p-5 sm:p-6">
-      <div className="mb-4 flex items-center gap-2">
-        <Filter className="h-4 w-4 text-primary" />
-        <h2 className="text-lg font-semibold">Search & filters</h2>
+    <section className="glass-panel rounded-2xl p-6">
+      <div className="mb-5">
+        <h2 className="text-lg font-semibold">Search and filter</h2>
+        <p className="text-sm text-muted-foreground">Use these controls to narrow the todo list.</p>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <div className="xl:col-span-2">
-          <label htmlFor="search-filter" className="mb-2 flex items-center gap-2 text-sm font-medium">
-            <Search className="h-4 w-4 text-muted-foreground" /> Search
-          </label>
-          <Input
-            id="search-filter"
-            value={filters.search}
-            onChange={(event) => onChange('search', event.target.value)}
-            placeholder="Search by title"
-          />
-        </div>
-
-        <div>
-          <label htmlFor="completed-filter" className="mb-2 block text-sm font-medium">
-            Completed state
-          </label>
-          <Select id="completed-filter" value={filters.completed} onChange={(event) => onChange('completed', event.target.value)}>
-            <option value="all">All</option>
-            <option value="complete">Complete</option>
-            <option value="incomplete">Incomplete</option>
-          </Select>
-        </div>
-
-        <div>
-          <label htmlFor="priority-filter" className="mb-2 block text-sm font-medium">
-            Priority
-          </label>
-          <Select id="priority-filter" value={filters.priority} onChange={(event) => onChange('priority', event.target.value)}>
-            <option value="all">All priorities</option>
-            <option value="low">Low</option>
-            <option value="medium">Medium</option>
-            <option value="high">High</option>
-          </Select>
-        </div>
-
-        <div className="md:col-span-2 xl:col-span-4">
-          <label htmlFor="label-filter" className="mb-2 flex items-center gap-2 text-sm font-medium">
-            <Tag className="h-4 w-4 text-muted-foreground" /> Label
-          </label>
-          <Input
-            id="label-filter"
-            value={filters.label}
-            onChange={(event) => onChange('label', event.target.value)}
-            placeholder="Filter by exact label"
-          />
-        </div>
+      <div className="grid gap-4 md:grid-cols-3">
+        <Input
+          id="search-todos"
+          label="Search todos"
+          placeholder="Search by title"
+          value={filters.search}
+          onChange={(event) => onChange({ ...filters, search: event.target.value })}
+        />
+        <Select
+          id="filter-status"
+          label="Completion"
+          value={filters.completed}
+          onChange={(event) =>
+            onChange({
+              ...filters,
+              completed: event.target.value as TodoFilterState['completed'],
+            })
+          }
+        >
+          <option value="all">All todos</option>
+          <option value="active">Active</option>
+          <option value="completed">Completed</option>
+        </Select>
+        <Select
+          id="filter-priority"
+          label="Priority"
+          value={filters.priority}
+          onChange={(event) => onChange({ ...filters, priority: event.target.value as '' | Priority })}
+        >
+          <option value="">All priorities</option>
+          <option value="low">Low</option>
+          <option value="medium">Medium</option>
+          <option value="high">High</option>
+        </Select>
       </div>
-    </Card>
+    </section>
   );
 }
