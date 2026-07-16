@@ -1,55 +1,45 @@
-import { Input } from '../ui/Input';
-import { Select } from '../ui/Select';
-import type { Priority, TodoFilters as TodoFilterState } from '../../types/todo';
+export type TodoFilterValue = 'all' | 'active' | 'completed';
 
 interface TodoFiltersProps {
-  filters: TodoFilterState;
-  onChange: (next: TodoFilterState) => void;
+  value: TodoFilterValue;
+  onChange: (value: TodoFilterValue) => void;
+  totalCount: number;
+  activeCount: number;
+  completedCount: number;
 }
 
-export function TodoFilters({ filters, onChange }: TodoFiltersProps) {
-  return (
-    <section className="glass-panel rounded-2xl p-6">
-      <div className="mb-5">
-        <h2 className="text-lg font-semibold">Search and filter</h2>
-        <p className="text-sm text-muted-foreground">Use these controls to narrow the todo list.</p>
-      </div>
+const filters: Array<{ value: TodoFilterValue; label: string }> = [
+  { value: 'all', label: 'All' },
+  { value: 'active', label: 'Active' },
+  { value: 'completed', label: 'Completed' },
+];
 
-      <div className="grid gap-4 md:grid-cols-3">
-        <Input
-          id="search-todos"
-          label="Search todos"
-          placeholder="Search by title"
-          value={filters.search}
-          onChange={(event) => onChange({ ...filters, search: event.target.value })}
-        />
-        <Select
-          id="filter-status"
-          label="Completion"
-          value={filters.completed}
-          onChange={(event) =>
-            onChange({
-              ...filters,
-              completed: event.target.value as TodoFilterState['completed'],
-            })
-          }
+export default function TodoFilters({
+  value,
+  onChange,
+  totalCount,
+  activeCount,
+  completedCount,
+}: TodoFiltersProps) {
+  const counts: Record<TodoFilterValue, number> = {
+    all: totalCount,
+    active: activeCount,
+    completed: completedCount,
+  };
+
+  return (
+    <div className="filters" aria-label="Todo filters">
+      {filters.map((filter) => (
+        <button
+          key={filter.value}
+          type="button"
+          className={`filter-button ${value === filter.value ? 'active' : ''}`}
+          onClick={() => onChange(filter.value)}
+          aria-pressed={value === filter.value}
         >
-          <option value="all">All todos</option>
-          <option value="active">Active</option>
-          <option value="completed">Completed</option>
-        </Select>
-        <Select
-          id="filter-priority"
-          label="Priority"
-          value={filters.priority}
-          onChange={(event) => onChange({ ...filters, priority: event.target.value as '' | Priority })}
-        >
-          <option value="">All priorities</option>
-          <option value="low">Low</option>
-          <option value="medium">Medium</option>
-          <option value="high">High</option>
-        </Select>
-      </div>
-    </section>
+          {filter.label} ({counts[filter.value]})
+        </button>
+      ))}
+    </div>
   );
 }

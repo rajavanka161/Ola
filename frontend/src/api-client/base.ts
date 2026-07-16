@@ -1,46 +1,56 @@
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? '';
 
-export async function apiRequest<T>(path: string, init?: RequestInit): Promise<T> {
+type RequestOptions = RequestInit & {
+  body?: unknown;
+};
+
+async function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
+  const headers = new Headers(options.headers);
+
+  if (options.body !== undefined && !headers.has('Content-Type')) {
+    headers.set('Content-Type', 'application/json');
+  }
+
   const response = await fetch(`${API_BASE}${path}`, {
-    ...init,
-    headers: {
-      'Content-Type': 'application/json',
-      ...(init?.headers ?? {}),
-    },
+    ...options,
+    headers,
+    body: options.body !== undefined ? JSON.stringify(options.body) : undefined,
   });
 
   if (!response.ok) {
-    const text = await response.text();
-    throw new Error(text || `Request failed with status ${response.status}`);
+    let message = `Request failed with status ${response.status}`;
+
+    try {
+      const errorBody = (await response.json()) as { detail?: string };
+      if (typeof errorBody.detail === 'string' && errorBody.detail.length > 0) {
+        message = errorBody.detail;
+      }
+    } catch {
+      // ignore json parse failures for empty/non-json responses
+    }
+
+    throw new Error(message);
   }
 
   if (response.status === 204) {
     return undefined as T;
   }
 
-  return response.json() as Promise<T>;
+  return (await response.json()) as T;
 }
 
 export function apiGet<T>(path: string): Promise<T> {
-  return apiRequest<T>(path);
+  return request<T>(path, { method: 'GET' });
 }
 
-export function apiPost<T, B>(path: string, body: B): Promise<T> {
-  return apiRequest<T>(path, {
-    method: 'POST',
-    body: JSON.stringify(body),
-  });
+export function apiPost<T>(path: string, body: unknown): Promise<T> {
+  return request<T>(path, { method: 'POST', body });
 }
 
-export function apiPut<T, B>(path: string, body: B): Promise<T> {
-  return apiRequest<T>(path, {
-    method: 'PUT',
-    body: JSON.stringify(body),
-  });
+export function apiPatch<T>(path: string, body: unknown): Promise<T> {
+  return request<T>(path, { method: 'PATCH', body });
 }
 
 export function apiDelete(path: string): Promise<void> {
-  return apiRequest<void>(path, {
-    method: 'DELETE',
-  });
+  return request<void>(path, { method: 'DELETE' });
 }

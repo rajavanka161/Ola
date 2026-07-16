@@ -1,119 +1,163 @@
-import { useEffect, useMemo, useState } from 'react';
-import { createTodo, fetchTodos, updateTodo } from './api-client/todos';
-import { TodoFilters } from './components/features/TodoFilters';
-import { TodoForm } from './components/features/TodoForm';
-import { TodoList } from './components/features/TodoList';
-import type { Todo, TodoFilters as TodoFilterState } from './types/todo';
+import { useMemo, useState } from 'react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import TodoCreateForm from './components/features/TodoCreateForm';
+import TodoFilters, { type TodoFilterValue } from './components/features/TodoFilters';
+import TodoList from './components/features/TodoList';
+import {
+  createTodo,
+  deleteTodo,
+  fetchTodos,
+  updateTodo,
+  type UpdateTodoInput,
+} from './api-client/todos';
+import type { Todo } from './types/todo';
 
-const initialFilters: TodoFilterState = {
-  search: '',
-  completed: 'all',
-  priority: '',
-};
+const TODOS_QUERY_KEY = ['todos'];
 
 export default function App() {
-  const [filters, setFilters] = useState<TodoFilterState>(initialFilters);
-  const [todos, setTodos] = useState<Todo[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
+  const queryClient = useQueryClient();
+  const [filter, setFilter] = useState<TodoFilterValue>('all');
+  const [actionError, setActionError] = useState<string | null>(null);
 
-  async function loadTodos(nextFilters: TodoFilterState) {
-    setLoading(true);
-    setError('');
+  const todosQuery = useQuery<Todo[], Error>({
+    queryKey: TODOS_QUERY_KEY,
+    queryFn: fetchTodos,
+  });
 
-    try {
-      const response = await fetchTodos(nextFilters);
-      setTodos(response);
-    } catch (loadError) {
-      setError(loadError instanceof Error ? loadError.message : 'Unable to load todos');
-    } finally {
-      setLoading(false);
+  const createMutation = useMutation<Todo, Error, string>({
+    mutationFn: createTodo,
+    onMutate: () => {
+      setActionError(null);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: TODOS_QUERY_KEY });
+    },
+    onError: (error) => {
+      setActionError(error.message);
+    },
+  });
+
+  const updateMutation = useMutation<Todo, Error, { id: number; input: UpdateTodoInput }>({
+    mutationFn: ({ id, input }) => updateTodo(id, input),
+    onMutate: () => {
+      setActionError(null);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: TODOS_QUERY_KEY });
+    },
+    onError: (error) => {
+      setActionError(error.message);
+    },
+  });
+
+  const deleteMutation = useMutation<void, Error, number>({
+    mutationFn: deleteTodo,
+    onMutate: () => {
+      setActionError(null);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: TODOS_QUERY_KEY });
+    },
+    onError: (error) => {
+      setActionError(error.message);
+    },
+  });
+
+  const filteredTodos = useMemo(() => {
+    const todos = todosQuery.data ?? [];
+
+    if (filter === 'active') {
+      return todos.filter((todo) => !todo.completed);
     }
-  }
 
-  useEffect(() => {
-    void loadTodos(filters);
-  }, [filters]);
+    if (filter === 'completed') {
+      return todos.filter((todo) => todo.completed);
+    }
 
-  const stats = useMemo(() => {
-    const total = todos.length;
-    const completed = todos.filter((todo) => todo.completed).length;
-    const active = total - completed;
-    return { total, completed, active };
-  }, [todos]);
+    return todos;
+  }, [filter, todosQuery.data]);
 
-  async function handleCreate(titlePayload: {
-    title: string;
-    due_date: string | null;
-    priority: Todo['priority'];
-    label: string | null;
-  }) {
-    await createTodo(titlePayload);
-    await loadTodos(filters);
-  }
-
-  async function handleToggle(todo: Todo) {
-    await updateTodo(todo.id, {
-      title: todo.title,
-      due_date: todo.due_date,
-      priority: todo.priority,
-      label: todo.label,
-      completed: !todo.completed,
-    });
-    await loadTodos(filters);
-  }
+  const totalCount = todosQuery.data?.length ?? 0;
+  const completedCount = todosQuery.data?.filter((todo) => todo.completed).length ?? 0;
+  const activeCount = totalCount - completedCount;
 
   return (
-    <main className="min-h-screen bg-background px-4 py-10 text-foreground sm:px-6 lg:px-8">
-      <div className="mx-auto max-w-6xl">
-        <section className="mb-8 overflow-hidden rounded-3xl border border-border/60 bg-[radial-gradient(circle_at_top_left,_rgba(28,201,168,0.2),_transparent_35%),linear-gradient(135deg,rgba(15,23,42,0.96),rgba(15,23,42,0.78))] p-8 shadow-2xl shadow-black/20">
-          <div className="flex flex-col gap-8 lg:flex-row lg:items-end lg:justify-between">
-            <div className="max-w-2xl">
-              <span className="inline-flex rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-medium uppercase tracking-[0.2em] text-slate-300">
-                Todo workspace
-              </span>
-              <h1 className="mt-4 text-4xl font-semibold tracking-tight text-white sm:text-5xl">
-                Keep tasks organized with fast search and status filters.
-              </h1>
-              <p className="mt-4 max-w-xl text-sm text-slate-300 sm:text-base">
-                This hydrated frontend connects to the real todo API so QA can validate list rendering,
-                creation flows, completion toggles, and filter interactions.
-              </p>
-            </div>
-
-            <div className="grid grid-cols-3 gap-3">
-              <div className="rounded-2xl border border-white/10 bg-white/5 p-4 text-white backdrop-blur">
-                <p className="text-xs uppercase tracking-wide text-slate-300">Total</p>
-                <p className="mt-2 text-2xl font-semibold">{stats.total}</p>
-              </div>
-              <div className="rounded-2xl border border-white/10 bg-white/5 p-4 text-white backdrop-blur">
-                <p className="text-xs uppercase tracking-wide text-slate-300">Active</p>
-                <p className="mt-2 text-2xl font-semibold">{stats.active}</p>
-              </div>
-              <div className="rounded-2xl border border-white/10 bg-white/5 p-4 text-white backdrop-blur">
-                <p className="text-xs uppercase tracking-wide text-slate-300">Completed</p>
-                <p className="mt-2 text-2xl font-semibold">{stats.completed}</p>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        <div className="grid gap-6 xl:grid-cols-[1.1fr,0.9fr]">
-          <div className="space-y-6">
-            <TodoFilters filters={filters} onChange={setFilters} />
-            <TodoList
-              todos={todos}
-              loading={loading}
-              error={error}
-              onRetry={() => loadTodos(filters)}
-              onToggle={handleToggle}
-            />
-          </div>
-          <div>
-            <TodoForm onSubmit={handleCreate} />
-          </div>
+    <main className="app-shell">
+      <section className="hero-card">
+        <div className="hero-copy">
+          <span className="eyebrow">Connected to your backend</span>
+          <h1>Todo flow that stays in sync</h1>
+          <p>
+            Create tasks, mark them complete, and delete them with backend persistence so
+            your list survives every refresh.
+          </p>
         </div>
-      </div>
+
+        <div className="stats-grid" aria-label="Todo summary">
+          <article className="stat-card">
+            <span>Total</span>
+            <strong>{totalCount}</strong>
+          </article>
+          <article className="stat-card">
+            <span>Active</span>
+            <strong>{activeCount}</strong>
+          </article>
+          <article className="stat-card">
+            <span>Completed</span>
+            <strong>{completedCount}</strong>
+          </article>
+        </div>
+      </section>
+
+      <section className="panel">
+        <TodoCreateForm
+          onCreate={(text) => createMutation.mutateAsync(text)}
+          isSubmitting={createMutation.isPending}
+        />
+
+        <TodoFilters
+          value={filter}
+          onChange={setFilter}
+          totalCount={totalCount}
+          activeCount={activeCount}
+          completedCount={completedCount}
+        />
+
+        {(todosQuery.isError || actionError) && (
+          <div className="error-banner" role="alert">
+            <div>
+              <strong>Something went wrong.</strong>
+              <p>{actionError ?? todosQuery.error?.message}</p>
+            </div>
+            <button
+              type="button"
+              className="secondary-button"
+              onClick={() => {
+                setActionError(null);
+                void todosQuery.refetch();
+              }}
+            >
+              Retry
+            </button>
+          </div>
+        )}
+
+        <TodoList
+          todos={filteredTodos}
+          isLoading={todosQuery.isLoading}
+          isFetching={todosQuery.isFetching}
+          filter={filter}
+          updatingTodoId={updateMutation.variables?.id}
+          deletingTodoId={deleteMutation.variables}
+          onToggleCompleted={(todo) =>
+            updateMutation.mutateAsync({
+              id: todo.id,
+              input: { text: null, completed: !todo.completed },
+            })
+          }
+          onDelete={(id) => deleteMutation.mutateAsync(id)}
+        />
+      </section>
     </main>
   );
 }

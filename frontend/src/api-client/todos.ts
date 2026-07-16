@@ -1,41 +1,28 @@
-import { apiDelete, apiGet, apiPost, apiPut } from './base';
-import type { Todo, TodoCreate, TodoFilters, TodoUpdate } from '../types/todo';
+import { apiDelete, apiGet, apiPatch, apiPost } from './base';
+import type { Todo } from '../types/todo';
 
-function buildQuery(filters: TodoFilters): string {
-  const params = new URLSearchParams();
+export type CreateTodoInput = {
+  text: string;
+};
 
-  if (filters.search.trim()) {
-    params.set('search', filters.search.trim());
-  }
+export type UpdateTodoInput = {
+  text: string | null;
+  completed: boolean | null;
+};
 
-  if (filters.completed === 'active') {
-    params.set('completed', 'false');
-  }
-
-  if (filters.completed === 'completed') {
-    params.set('completed', 'true');
-  }
-
-  if (filters.priority) {
-    params.set('priority', filters.priority);
-  }
-
-  const query = params.toString();
-  return query ? `?${query}` : '';
+export function fetchTodos(): Promise<Todo[]> {
+  return apiGet<Todo[]>('/api/todos');
 }
 
-export function fetchTodos(filters: TodoFilters): Promise<Todo[]> {
-  return apiGet<Todo[]>(`/api/todos${buildQuery(filters)}`);
+export function createTodo(text: string): Promise<Todo> {
+  const payload: CreateTodoInput = { text };
+  return apiPost<Todo>('/api/todos', payload);
 }
 
-export function createTodo(body: TodoCreate): Promise<Todo> {
-  return apiPost<Todo, TodoCreate>('/api/todos', body);
+export function updateTodo(id: number, input: UpdateTodoInput): Promise<Todo> {
+  return apiPatch<Todo>(`/api/todos/${id}`, input);
 }
 
-export function updateTodo(id: string, body: TodoUpdate): Promise<Todo> {
-  return apiPut<Todo, TodoUpdate>(`/api/todos/${id}`, body);
-}
-
-export function deleteTodo(id: string): Promise<void> {
+export function deleteTodo(id: number): Promise<void> {
   return apiDelete(`/api/todos/${id}`);
 }
