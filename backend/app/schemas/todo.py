@@ -1,49 +1,39 @@
-from datetime import date, datetime
-from typing import Literal
-from uuid import UUID
+from typing import Optional
 
-from pydantic import BaseModel, ConfigDict, field_validator
-
-Priority = Literal["low", "medium", "high"]
+from pydantic import BaseModel, Field, field_validator
 
 
 class TodoCreate(BaseModel):
-    title: str
-    due_date: date | None = None
-    priority: Priority | None = None
-    label: str | None = None
+    text: str = Field(..., min_length=1)
 
-    @field_validator("title")
+    @field_validator("text")
     @classmethod
-    def title_required(cls, value: str) -> str:
-        if not value.strip():
-            raise ValueError("title is required")
+    def strip_text(cls, value: str) -> str:
+        value = value.strip()
+        if not value:
+            raise ValueError("text must not be empty")
         return value
 
 
 class TodoUpdate(BaseModel):
-    title: str
-    due_date: date | None = None
-    priority: Priority | None = None
-    label: str | None = None
-    completed: bool
+    text: Optional[str] = None
+    completed: Optional[bool] = None
 
-    @field_validator("title")
+    @field_validator("text")
     @classmethod
-    def title_required(cls, value: str) -> str:
-        if not value.strip():
-            raise ValueError("title is required")
+    def strip_text(cls, value: Optional[str]) -> Optional[str]:
+        if value is None:
+            return value
+        value = value.strip()
+        if not value:
+            raise ValueError("text must not be empty")
         return value
 
 
 class TodoOut(BaseModel):
-    id: UUID
-    title: str
-    due_date: date | None
-    priority: Priority | None
-    label: str | None
+    id: int
+    text: str
     completed: bool
-    created_at: datetime
-    updated_at: datetime
+    created_at: str
 
-    model_config = ConfigDict(from_attributes=True)
+    model_config = {"from_attributes": True}

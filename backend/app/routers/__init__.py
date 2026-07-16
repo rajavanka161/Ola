@@ -1,1 +1,3 @@
-from app.routers.todo import router as todo_router
+from app.routers import todos
+
+__all__ = ["todos"]
